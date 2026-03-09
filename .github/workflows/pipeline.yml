@@ -1,0 +1,42 @@
+name: Deploy to Salesforce Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # Setup Node
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '14'
+    
+    # Install Salesforce CLI
+    - name: Install Salesforce CLI
+      run: npm install @salesforce/cli --global
+
+    # Authorize SF Org
+    - name: Authorize SF Org
+      env:
+        CLIENT_ID: ${{ secrets.SALESFORCEPRODCLIENTID }}
+      run: sf org login jwt --client-id $CLIENT_ID --jwt-key-file ./buildfiles/server.key --username girishwakle999382@agentforce.com --instance-url https://login.salesforce.com --alias prod
+
+    # Convert to Deploy Source
+    - name: Convert to Deploy Source
+      run: sf project convert source --root-dir ./force-app --output-dir ./toDeploy
+    
+    # Validate Deployment (optional dry-run)
+    - name: Validate Deployment
+      run: sf project deploy start --metadata-dir ./toDeploy --target-org prod --dry-run
+
+    # Deploy
+    - name: Deploy to SF Org
+      run: sf project deploy start --metadata-dir ./toDeploy --target-org prod --ignore-errors --wait 10 --test-level NoTestRun
