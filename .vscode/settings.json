@@ -2,8 +2,13 @@
   "search.exclude": {
     "**/node_modules": true,
     "**/bower_components": true,
+<<<<<<< HEAD
     "**/.sf": true,
     "**/.sfdx": true
   },
   "xml.preferences.showSchemaDocumentationType": "none"
+=======
+    "**/.sfdx": true
+  }
+>>>>>>> 73b4d42d5ba8851a994a35db9c31d829aad44b5c
 }
