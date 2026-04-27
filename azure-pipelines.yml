@@ -1,66 +1,42 @@
 trigger:
-  batch: true
   branches:
     include:
-      - master
-  paths:
-    exclude:
-      - README.md
-      - azure-pipelines.yml
+      - main
 
-pr:
-  autoCancel: true
-  branches:
-    include:
-      - master
-  paths:
-    exclude:
-      - README.md
+pool:
+  vmImage: 'ubuntu-latest'
 
-jobs:
-- job: Deploy
-  displayName: Deploy to Salesforce Dev Org
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-  pool:
-    vmImage: 'ubuntu-latest'
+variables:
+  - group: salesforce-variable-group
 
-  steps:
-  - task: UseNode@1
-    displayName: Use Node.js
+steps:
+  - task: DownloadSecureFile@1
+    name: serverKey
     inputs:
-      version: '16.x'
+      secureFile: 'server.key'
 
-  - bash: |
-      npm install sfdx-cli --global
-    displayName: Install Salesforce CLI
+  - script: |
+      npm install @salesforce/cli --global
+    displayName: 'Install Salesforce CLI'
 
-  - bash: |
-      sfdx force:auth:jwt:grant \
-        --clientid $(salesforceDevOrgClientId) \
-        --jwtkeyfile ./buildfiles/server.key \
-        --username $(salesforceDevOrgUserName) \
-        --instanceurl $(salesforceDevOrgInstanceURL) \
-        --setalias devOrg \
-        --setdefaultusername
-    displayName: Authorize Salesforce Org
+  - script: |
+      sf org login jwt \
+        --client-id $(sf-clientid-qa) \
+        --jwt-key-file $(serverKey.secureFilePath) \
+        --username $(sf-username-qa) \
+        --instance-url https://login.salesforce.com \
+        --set-default
+    displayName: 'Authenticate to Salesforce'
 
-  - bash: |
-      sfdx force:source:convert -r ./force-app -d ./toDeploy
-    displayName: Convert Source to Metadata API Format
+  - script: |
+      sf project deploy start \
+        --source-dir force-app \
+        --target-org $(sf-username-qa)
+    displayName: 'Deploy to Salesforce Org'
 
-  - bash: |
-      sfdx force:mdapi:deploy \
-        -d ./toDeploy \
-        -u devOrg \
-        -l RunLocalTests \
-        -c \
-        -w 10
-    displayName: Validate Deployment (Check Only)
-
-  - bash: |
-      sfdx force:mdapi:deploy \
-        -d ./toDeploy \
-        -u devOrg \
-        -l RunLocalTests \
-        -w 10
-    displayName: Deploy Source Code to Dev Org
+  - script: |
+      sf apex run test \
+        --target-org $(sf-username-qa) \
+        --result-format human \
+        --wait 10
+    displayName: 'Run Apex Tests'
