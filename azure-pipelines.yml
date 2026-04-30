@@ -8,9 +8,10 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-  - task: NodeTool@0
+  - task: UseNode@1
+    displayName: Use Node.js
     inputs:
-      versionSpec: '14.x'
+      version: '16.x'
 
   - script: sudo npm install @salesforce/cli --global
     displayName: "Install Salesforce CLI"
