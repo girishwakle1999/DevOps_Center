@@ -1,42 +1,30 @@
 trigger:
-  branches:
-    include:
-      - main
-
-pool:
-  vmImage: 'ubuntu-latest'
+  - QA
 
 variables:
   - group: salesforce-variable-group
 
+pool:
+  vmImage: 'ubuntu-latest'
+
 steps:
-  - task: DownloadSecureFile@1
-    name: serverKey
+  - task: NodeTool@0
     inputs:
-      secureFile: 'server.key'
+      versionSpec: '14.x'
 
-  - script: |
-      npm install @salesforce/cli --global
-    displayName: 'Install Salesforce CLI'
+  - script: sudo npm install @salesforce/cli --global
+    displayName: "Install Salesforce CLI"
 
-  - script: |
-      sf org login jwt \
-        --client-id $(sf-clientid-qa) \
-        --jwt-key-file $(serverKey.secureFilePath) \
-        --username $(sf-username-qa) \
-        --instance-url https://login.salesforce.com \
-        --set-default
-    displayName: 'Authenticate to Salesforce'
+  - task: DownloadSecureFile@1
+    name: serverkey_qa
+    inputs:
+      secureFile: "server.key"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/QA'))
 
-  - script: |
-      sf project deploy start \
-        --source-dir force-app \
-        --target-org $(sf-username-qa)
-    displayName: 'Deploy to Salesforce Org'
+  - script: sudo sf org login jwt --username $(sf-username-qa) --jwt-key-file $(serverkey_qa.secureFilePath) --client-id $(sf-clientid-qa) --instance-url $(sf-endpoint-sandbox)
+    displayName: "Login into Salesforce QA Sandbox"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/QA'))
 
-  - script: |
-      sf apex run test \
-        --target-org $(sf-username-qa) \
-        --result-format human \
-        --wait 10
-    displayName: 'Run Apex Tests'
+  - script: sudo sf project deploy start -o $(sf-username-qa) --source-dir ParentDir
+    displayName: "Deploy to Salesforce QA Sandbox"
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/QA'))
